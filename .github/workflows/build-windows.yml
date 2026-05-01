@@ -1,0 +1,68 @@
+name: Build Binwalk for Windows
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. v3.1.0-win)'
+        required: true
+        default: 'v3.1.0-win'
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    name: Build & Release (Windows x64)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout binwalk source
+        uses: actions/checkout@v4
+        with:
+          repository: ReFirmLabs/binwalk
+          ref: master
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Cache Cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Build release binary
+        run: cargo build --release --target x86_64-pc-windows-msvc
+
+      - name: Rename binary
+        run: |
+          copy target\x86_64-pc-windows-msvc\release\binwalk.exe binwalk-windows-x64.exe
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.tag }}
+          name: "Binwalk Windows Build ${{ github.event.inputs.tag }}"
+          body: |
+            Unofficial prebuilt Windows x64 binary of [ReFirmLabs/binwalk](https://github.com/ReFirmLabs/binwalk).
+
+            Built from `master` branch using `cargo build --release` on `windows-latest` (GitHub Actions).
+
+            ## Usage
+            Download `binwalk-windows-x64.exe` and run it from a terminal:
+            ```
+            binwalk-windows-x64.exe firmware.bin
+            ```
+
+            > **Note:** Some extraction features require external tools (7zip, etc.) that are not bundled.
+          files: binwalk-windows-x64.exe
+          draft: false
+          prerelease: false
